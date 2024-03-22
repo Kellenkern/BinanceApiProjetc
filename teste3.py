@@ -1,5 +1,6 @@
 import requests
 import time
+import math
 from binance.client import Client
 
 # Variáveis de controle
@@ -94,7 +95,6 @@ def get_account_informaions():
     
         print(f"Moeda: {asset}, Saldo Livre: {free_balance}, Saldo Bloqueado: {locked_balance}")
 
-
 def execute_buy_order(symbol, available_balance):
     
     client = Client(api_key=API_KEY, api_secret=SECRET_KEY)
@@ -104,8 +104,8 @@ def execute_buy_order(symbol, available_balance):
     buy_price = price
     sell_price_limit = buy_price * 1.045
 
-    if usdt_balance < quantity:
-        print(f"Saldo insuficiente para vender {quantity} {symbol}. Saldo disponível: {usdt_balance}")
+    if usdt_balance < available_balance:
+        print(f"Saldo insuficiente para comprar {available_balance} {symbol}. Saldo disponível: {usdt_balance}")
         return
 
     order = client.create_order(
@@ -116,24 +116,34 @@ def execute_buy_order(symbol, available_balance):
     )
     print(f'Ordem de compra executada para {symbol}. Detalhes: {order}')
 
-    execute_sell_order(symbol, available_balance, sell_price_limit)
+    execute_programated_sell_order(symbol, available_balance, sell_price_limit)
 
-def execute_sell_order(symbol, quantity, sell_price_limit ):
+def execute_programated_sell_order(symbol, quantity, sell_price_limit ):
     client = Client(api_key=API_KEY, api_secret=SECRET_KEY)
     price, _ = get_binance_price(symbol)
 
-    if symbol_info:
-        print(symbol_info['filters'])
-    
     print(f"chamou a ordem de venda: {quantity}")
 
     order = client.create_order(
         symbol=symbol,
         side='SELL',
-        type='TYPE',
-        quantity=round(quantity, 8),
-        stopPrice=sell_price_limit,
+        type='LIMIT_MAKER',
+        quoteOrderQty=quantity,
         price=(sell_price_limit-1)
+    )
+
+    print(f'Ordem de venda executada para {symbol}. Detalhes: {order}')
+
+def execute_sell_order(symbol, quantity ):
+    client = Client(api_key=API_KEY, api_secret=SECRET_KEY)
+
+    print(f"chamou a ordem de venda: {quantity}")
+
+    order = client.create_order(
+        symbol=symbol,
+        side='SELL',
+        type='MARKET',
+        quoteOrderQty= quantity,
     )
 
     print(f'Ordem de venda executada para {symbol}. Detalhes: {order}')
@@ -160,8 +170,9 @@ def compare_prices():
             # Comparar a variação percentual
             if price_change_percent_24h <= VAR_PERCENT_COMPRA:
                 buyable_amount = distributed_capital[symbol]  
-                execute_buy_order(symbol, buyable_amount)
                 print(f'variação nas ultimas 12h é de: {abs(price_change_percent_24h):.2f}%. Compre!')
+                print(f'valor arredondado {buyable_amount}')
+                execute_buy_order(symbol, buyable_amount)
                 print(f'Compra de {buyable_amount}')
 
             # elif var_percent_compra >= var_percent_venda:
