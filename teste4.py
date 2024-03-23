@@ -54,22 +54,24 @@ def get_price_change_4h(symbol):
     params = {
         'symbol': symbol,
         'interval': '4h',
-        'limit': 1
+        'limit': 2
     }
     response = requests.get(base_url, params=params)
     data = response.json()
 
     open_price = float(data[0][1])
-    close_price = float(data[0][4])
+    close_price = float(data[1][4])
 
     price_change_percent_4h = ((close_price - open_price) / open_price) * 100
     return price_change_percent_4h
 
 
-def execute_buy_order(symbol, buy_amount, var_perecent_venda):
+def execute_buy_order(symbol, buy_amount, var_percent_venda):
     client = Client(api_key=API_KEY, api_secret=SECRET_KEY)
     usdt_balance = get_balance("USDT")
-    sell_price_limit = buy_price * var_perecent_venda
+    buy_price, _ = get_binance_price(symbol)
+    sell_price_limit = buy_price * var_percent_venda
+    buy_amount = round(buy_amount, 2)
 
     if usdt_balance < buy_amount:
         print(f"Saldo insuficiente para comprar {buy_amount} {symbol}. Saldo disponível: {usdt_balance}")
@@ -82,12 +84,15 @@ def execute_buy_order(symbol, buy_amount, var_perecent_venda):
         quoteOrderQty=buy_amount,
     )
     print(f'Ordem de compra executada para {symbol}. Detalhes: {order}')
+    print(f'Valor de compra da moeda: {buy_price}')
+
+    executed_qty = float(order['executedQty'])
 
     order = client.create_order(
         symbol=symbol,
         side='SELL',
         type='LIMIT_MAKER',
-        quoteOrderQty=buy_amount,
+        quantity=executed_qty,
         price=(sell_price_limit)
     )
     print(f'Ordem de venda executada para {symbol}. Detalhes: {order}')
